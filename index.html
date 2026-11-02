@@ -162,9 +162,10 @@ dialog::backdrop { background: rgba(25, 26, 33, .92); }
 <div class="sheet" id="sheet" aria-hidden="true">
   <h3>Domain</h3><div class="chips" id="f-domain"></div>
   <h3>Rarity</h3><div class="chips" id="f-rarity"></div>
-  <h3>Show</h3>
+  <h3>Show and sort</h3>
   <div class="chips">
     <button class="chip" id="f-hide" aria-pressed="false">Hide cards I have</button>
+    <button class="chip" id="f-popular" aria-pressed="false">Most played first</button>
     <button class="chip" id="f-price" aria-pressed="false">Priciest first</button>
   </div>
   <div class="actions">
@@ -195,7 +196,7 @@ const MONEY = 5;
 const KEY = "rift.have.v1", PREFS = "rift.prefs.v1";
 
 let cards = [], have = load(KEY, {}), prefs = Object.assign(
-  { tab: "riven", domains: [], rarities: [], hide: false, price: false }, load(PREFS, {}));
+  { tab: "riven", domains: [], rarities: [], hide: false, price: false, popular: true }, load(PREFS, {}));
 let query = "";
 
 function load(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }
@@ -230,6 +231,10 @@ function groupsFor(list) {
     ? (a, b) => (b.price ?? 0) - (a.price ?? 0)
     : prefs.tab === "riven"
       ? (a, b) => b.riven.share - a.riven.share
+      : prefs.popular
+      ? (a, b) => (a.type === "Battlefield") - (b.type === "Battlefield")
+              || (b.meta?.legends ?? 0) - (a.meta?.legends ?? 0)
+              || (b.meta?.avg ?? 0) - (a.meta?.avg ?? 0) || a.name.localeCompare(b.name)
       : (a, b) => (a.type === "Battlefield") - (b.type === "Battlefield")
               || (a.meta?.where === "Side") - (b.meta?.where === "Side")
               || RARITY_RANK[a.rarity] - RARITY_RANK[b.rarity]
@@ -316,15 +321,17 @@ function zoom(c) {
   $("#zoom").showModal();
 }
 
-function filterCount() { return prefs.domains.length + prefs.rarities.length + prefs.hide + prefs.price; }
+// sorts aren't filters, so only real filters count toward the badge
+function filterCount() { return prefs.domains.length + prefs.rarities.length + prefs.hide; }
 function syncChips() {
   document.querySelectorAll("#f-domain .chip").forEach(b => b.setAttribute("aria-pressed", prefs.domains.includes(b.dataset.v)));
   document.querySelectorAll("#f-rarity .chip").forEach(b => b.setAttribute("aria-pressed", prefs.rarities.includes(b.dataset.v)));
   $("#f-hide").setAttribute("aria-pressed", prefs.hide);
   $("#f-price").setAttribute("aria-pressed", prefs.price);
+  $("#f-popular").setAttribute("aria-pressed", prefs.popular && !prefs.price);
   $("#filt").dataset.n = filterCount();
 }
-function clearFilters() { Object.assign(prefs, { domains: [], rarities: [], hide: false, price: false }); save(); syncChips(); render(); }
+function clearFilters() { Object.assign(prefs, { domains: [], rarities: [], hide: false, price: false, popular: true }); save(); syncChips(); render(); }
 function toggle(arr, v) { const i = arr.indexOf(v); i < 0 ? arr.push(v) : arr.splice(i, 1); }
 
 function wire() {
@@ -335,7 +342,10 @@ function wire() {
   $("#f-domain").onclick = e => { const b = e.target.closest(".chip"); if (b) { toggle(prefs.domains, b.dataset.v); save(); syncChips(); render(); } };
   $("#f-rarity").onclick = e => { const b = e.target.closest(".chip"); if (b) { toggle(prefs.rarities, b.dataset.v); save(); syncChips(); render(); } };
   $("#f-hide").onclick = () => { prefs.hide = !prefs.hide; save(); syncChips(); render(); };
-  $("#f-price").onclick = () => { prefs.price = !prefs.price; save(); syncChips(); render(); };
+  $("#f-price").onclick = () => { prefs.price = !prefs.price; if (prefs.price) prefs.popular = false; save(); syncChips(); render(); };
+  $("#f-popular").onclick = () => {
+    prefs.popular = !(prefs.popular && !prefs.price); if (prefs.popular) prefs.price = false; save(); syncChips(); render();
+  };
   $("#clear").onclick = clearFilters;
 
   const sheet = $("#sheet");
