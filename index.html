@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#282a36">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rift list">
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Rift list</title>
+<style>
+@font-face { font-family: "Barlow SC"; font-weight: 500; font-display: swap; src: url(fonts/barlow-sc-500.woff2) format("woff2"); }
+@font-face { font-family: "Barlow SC"; font-weight: 600; font-display: swap; src: url(fonts/barlow-sc-600.woff2) format("woff2"); }
+
+:root {
+  /* Dracula */
+  --bg: #282a36; --line: #44475a; --fg: #f8f8f2; --comment: #6272a4;
+  --cyan: #8be9fd; --green: #50fa7b; --orange: #ffb86c; --pink: #ff79c6;
+  --purple: #bd93f9; --red: #ff5555; --yellow: #f1fa8c;
+  /* domain -> hue; pink is kept for money so it never means a domain */
+  --Calm: var(--green); --Chaos: var(--purple); --Fury: var(--red);
+  --Mind: var(--cyan); --Order: var(--yellow); --Body: var(--orange); --none: var(--fg);
+  --muted: rgba(248, 248, 242, .68);
+  --dock-h: 64px;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg); }
+body {
+  font: 500 15px/1.35 "Barlow SC", -apple-system, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  padding-bottom: calc(var(--dock-h) + env(safe-area-inset-bottom) + 12px);
+}
+button, input { font: inherit; color: inherit; }
+button { background: none; border: 0; padding: 0; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+
+/* ---------- top: which list + progress ---------- */
+.top {
+  position: sticky; top: 0; z-index: 5;
+  padding: calc(env(safe-area-inset-top) + 8px) 16px 10px;
+  background: rgba(40, 42, 54, .94);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.switch { display: flex; gap: 4px; background: var(--line); border-radius: 12px; padding: 3px; }
+.switch button {
+  flex: 1; height: 38px; border-radius: 9px; font-weight: 600; font-size: 17px; color: var(--muted);
+}
+.switch button[aria-pressed="true"] { background: var(--bg); color: var(--fg); }
+.switch small { font-weight: 500; font-size: 14px; color: var(--muted); margin-left: 4px; }
+.progress { display: flex; justify-content: space-between; margin-top: 8px; font-size: 14px; color: var(--muted); }
+.progress b { color: var(--fg); font-weight: 600; }
+.progress .left b { color: var(--pink); }
+
+/* ---------- list ---------- */
+.group h2 {
+  margin: 0; padding: 18px 16px 6px;
+  font-size: 22px; font-weight: 600; line-height: 1.1;
+  color: var(--hue, var(--fg));
+  display: flex; align-items: baseline; gap: 8px;
+}
+.group h2 span { font-size: 14px; font-weight: 500; color: var(--muted); }
+.group p.note { margin: 0; padding: 0 16px 8px; font-size: 14px; color: var(--muted); }
+
+.row {
+  display: grid; grid-template-columns: 58px 1fr auto; gap: 10px; align-items: center;
+  padding: 8px 16px; border-top: 1px solid rgba(68, 71, 90, .55);
+}
+.thumb { width: 58px; height: 81px; border-radius: 5px; overflow: hidden; background: var(--line); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.info { min-width: 0; }
+.name { font-size: 17px; font-weight: 600; line-height: 1.15; }
+.facts { display: flex; flex-wrap: wrap; column-gap: 10px; margin-top: 3px; font-size: 14px; color: var(--muted); }
+.facts .money { color: var(--pink); font-weight: 600; }
+.use { margin-top: 2px; font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag { color: var(--fg); }
+
+/* the pips: one slot per copy you need, filled in the card's domain hue */
+.pips { display: flex; margin-right: -6px; }
+.pip { width: 30px; height: 44px; display: grid; place-items: center; }
+.pip i {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 2px solid var(--c, var(--fg)); opacity: .55;
+  transition: background-color .12s, opacity .12s, transform .12s;
+}
+.pip.on i { background: var(--c, var(--fg)); opacity: 1; transform: scale(1.06); }
+.row.done .thumb, .row.done .info { opacity: .42; }
+.row.done .name { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+@media (prefers-reduced-motion: reduce) { .pip i { transition: none; } }
+
+.empty { padding: 48px 24px; text-align: center; color: var(--muted); }
+.empty button { margin-top: 12px; color: var(--pink); font-weight: 600; }
+.foot { padding: 24px 16px 8px; font-size: 13px; color: var(--muted); }
+
+/* ---------- bottom dock: search + filters within thumb reach ---------- */
+.dock {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+  padding: 10px 12px calc(env(safe-area-inset-bottom) + 10px);
+  background: rgba(40, 42, 54, .96);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line);
+  display: flex; gap: 8px;
+}
+.dock input {
+  flex: 1; height: 44px; border-radius: 12px; border: 1px solid var(--line);
+  background: #21222c; padding: 0 14px; font-size: 17px;
+}
+.dock input::placeholder { color: var(--muted); }
+.dock .filt {
+  height: 44px; padding: 0 14px; border-radius: 12px; background: var(--line); font-weight: 600; font-size: 16px;
+}
+.dock .filt[data-n]:not([data-n="0"])::after {
+  content: attr(data-n); margin-left: 6px; padding: 0 7px; border-radius: 9px; background: var(--pink); color: var(--bg);
+}
+
+.sheet {
+  position: fixed; left: 0; right: 0; bottom: calc(var(--dock-h) + env(safe-area-inset-bottom)); z-index: 6;
+  max-height: 70vh; overflow: auto;
+  background: #21222c; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0;
+  padding: 14px 16px 6px; transform: translateY(110%); transition: transform .2s ease-out;
+}
+.sheet.open { transform: none; }
+@media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+.sheet h3 { margin: 4px 0 8px; font-size: 15px; font-weight: 600; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chip {
+  height: 38px; padding: 0 14px; border-radius: 19px; border: 1.5px solid var(--line);
+  font-weight: 600; font-size: 16px; color: var(--hue, var(--fg));
+}
+.chip[aria-pressed="true"] { background: var(--line); border-color: var(--hue, var(--fg)); }
+.sheet .actions { display: flex; flex-wrap: wrap; gap: 16px; padding: 4px 0 12px; }
+.sheet .actions button { color: var(--pink); font-weight: 600; }
+
+dialog {
+  border: 0; padding: 0; background: transparent; color: var(--fg); max-width: 100vw; max-height: 100vh;
+}
+dialog::backdrop { background: rgba(25, 26, 33, .92); }
+.big { width: min(88vw, 420px); }
+.big img { width: 100%; border-radius: 14px; display: block; background: var(--line); aspect-ratio: 744 / 1039; }
+.big .cap { padding: 12px 4px; font-size: 15px; color: var(--muted); }
+.big .cap b { display: block; color: var(--fg); font-size: 20px; font-weight: 600; margin-bottom: 2px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="switch" role="group" aria-label="Which list">
+    <button data-tab="riven" aria-pressed="true">Riven <small id="n-riven"></small></button>
+    <button data-tab="all" aria-pressed="false">Staples <small id="n-all"></small></button>
+  </div>
+  <div class="progress"><span id="found"></span><span class="left" id="left"></span></div>
+</header>
+
+<main id="list" aria-live="polite"></main>
+
+<div class="sheet" id="sheet" aria-hidden="true">
+  <h3>Domain</h3><div class="chips" id="f-domain"></div>
+  <h3>Rarity</h3><div class="chips" id="f-rarity"></div>
+  <h3>Show</h3>
+  <div class="chips">
+    <button class="chip" id="f-hide" aria-pressed="false">Hide cards I have</button>
+    <button class="chip" id="f-price" aria-pressed="false">Priciest first</button>
+  </div>
+  <div class="actions">
+    <button id="clear">Clear filters</button>
+    <button id="backup">Copy backup</button>
+    <button id="restore">Restore backup</button>
+  </div>
+</div>
+
+<footer class="dock">
+  <input id="q" type="search" placeholder="Card name or set number" autocomplete="off" autocorrect="off"
+         spellcheck="false" enterkeyhint="search" aria-label="Search cards">
+  <button class="filt" id="filt" data-n="0" aria-expanded="false" aria-controls="sheet">Filters</button>
+</footer>
+
+<dialog id="zoom"><div class="big"><img id="zoom-img" alt=""><div class="cap" id="zoom-cap"></div></div></dialog>
+
+<script>
+const DOMAINS = ["Calm", "Chaos", "Fury", "Mind", "Order", "Body"];
+const RARITIES = [["Common", "●"], ["Uncommon", "▲"], ["Rare", "◆"], ["Epic", "⬟"]];
+const RARITY_RANK = Object.fromEntries(RARITIES.map(([r], i) => [r, i]));
+const GLYPH = Object.fromEntries(RARITIES);
+const TIERS = [
+  ["Core", "In 75% or more of Riven decks"], ["Common", "In 40 to 75%"], ["Flex", "In 15 to 40%"],
+  ["Battlefield", "Pick 3 for the deck"], ["Sideboard", "Brought in between games"],
+];
+const MONEY = 5;
+const KEY = "rift.have.v1", PREFS = "rift.prefs.v1";
+
+let cards = [], have = load(KEY, {}), prefs = Object.assign(
+  { tab: "riven", domains: [], rarities: [], hide: false, price: false }, load(PREFS, {}));
+let query = "";
+
+function load(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }
+function save() { localStorage.setItem(KEY, JSON.stringify(have)); localStorage.setItem(PREFS, JSON.stringify(prefs)); }
+const $ = s => document.querySelector(s);
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const norm = s => s.toLowerCase().replace(/[’'.,!-]/g, "");
+const money = p => p == null ? "" : "$" + p.toFixed(2);
+const domKey = c => c.domain.length === 0 ? "Colorless" : c.domain.length > 1 ? "Multi-domain" : c.domain[0];
+const hue = d => DOMAINS.includes(d) ? `var(--${d})` : "var(--fg)";
+
+function inTab(c) { return prefs.tab === "all" || c.riven; }
+function visible(c) {
+  if (!inTab(c)) return false;
+  if (query) return norm(c.name).includes(query) || norm(c.set).includes(query);
+  if (prefs.domains.length && !prefs.domains.some(d => d === "Colorless" ? !c.domain.length : c.domain.includes(d))) return false;
+  if (prefs.rarities.length && !prefs.rarities.includes(c.rarity)) return false;
+  if (prefs.hide && (have[c.name] || 0) >= c.need) return false;
+  return true;
+}
+
+function groupsFor(list) {
+  const by = new Map();
+  if (prefs.tab === "riven") {
+    for (const [t] of TIERS) by.set(t, []);
+    for (const c of list) by.get(c.riven.tier).push(c);
+  } else {
+    for (const d of [...DOMAINS, "Multi-domain", "Colorless"]) by.set(d, []);
+    for (const c of list) by.get(domKey(c)).push(c);
+  }
+  const sort = prefs.price
+    ? (a, b) => (b.price ?? 0) - (a.price ?? 0)
+    : prefs.tab === "riven"
+      ? (a, b) => b.riven.share - a.riven.share
+      : (a, b) => (a.type === "Battlefield") - (b.type === "Battlefield")
+              || (a.meta?.where === "Side") - (b.meta?.where === "Side")
+              || RARITY_RANK[a.rarity] - RARITY_RANK[b.rarity]
+              || (b.meta?.legends ?? 0) - (a.meta?.legends ?? 0) || a.name.localeCompare(b.name);
+  return [...by].filter(([, cs]) => cs.length).map(([k, cs]) => [k, cs.sort(sort)]);
+}
+
+function useLine(c) {
+  if (prefs.tab === "riven") {
+    const others = (c.meta?.usedBy || []).filter(u => u.legend !== "Riven").map(u => u.legend);
+    return `${Math.round(c.riven.share * 100)}% of Riven decks` + (others.length ? `, also ${others.slice(0, 2).join(", ")}` : "");
+  }
+  const where = c.meta?.where === "Side" ? '<span class="tag">Sideboard</span> ' : c.type === "Battlefield" ? '<span class="tag">Battlefield</span> ' : "";
+  const who = (c.meta?.usedBy || []).map(u => u.legend).filter(l => l !== "Riven");
+  if (c.riven) who.unshift("Riven");
+  return where + who.slice(0, 3).join(", ") + (who.length > 3 ? ` +${who.length - 3}` : "");
+}
+
+function rowHTML(c) {
+  const n = have[c.name] || 0, done = n >= c.need;
+  const pips = Array.from({ length: c.need }, (_, i) =>
+    `<button class="pip${i < n ? " on" : ""}" data-i="${i + 1}" style="--c:${hue(c.domain[i % (c.domain.length || 1)])}"
+       aria-label="${i < n ? "Remove" : "Mark"} copy ${i + 1} of ${c.need}"><i></i></button>`).join("");
+  return `<article class="row${done ? " done" : ""}" data-name="${esc(c.name)}">
+    <button class="thumb" aria-label="Show ${esc(c.name)} full size"><img loading="lazy" decoding="async" src="img/${c.img}-s.webp" alt=""></button>
+    <div class="info">
+      <div class="name">${esc(c.name)}</div>
+      <div class="facts"><span>${GLYPH[c.rarity] || ""} ${c.rarity}</span><span>${c.set}</span>${c.price != null
+        ? `<span class="${c.price >= MONEY ? "money" : ""}">${money(c.price)}</span>` : ""}</div>
+      <div class="use">${useLine(c)}</div>
+    </div>
+    <div class="pips" role="group" aria-label="Copies you have: ${n} of ${c.need}">${pips}</div>
+  </article>`;
+}
+
+function render() {
+  const tabCards = cards.filter(inTab);
+  const need = tabCards.reduce((s, c) => s + c.need, 0);
+  const got = tabCards.reduce((s, c) => s + Math.min(have[c.name] || 0, c.need), 0);
+  const left = tabCards.reduce((s, c) => s + (c.price || 0) * Math.max(0, c.need - (have[c.name] || 0)), 0);
+  $("#found").innerHTML = `<b>${got}</b> of ${need} copies found`;
+  $("#left").innerHTML = `<b>$${Math.round(left)}</b> to buy the rest`;
+  document.querySelectorAll(".switch button").forEach(b => b.setAttribute("aria-pressed", b.dataset.tab === prefs.tab));
+
+  const list = cards.filter(visible), groups = groupsFor(list);
+  if (!list.length) {
+    $("#list").innerHTML = `<div class="empty">${query ? `No card on this list matches "${esc(query)}".`
+      : "Every card matching these filters is already marked as found."}<br>
+      <button id="reset">Clear search and filters</button></div>`;
+    $("#reset").onclick = () => { query = ""; $("#q").value = ""; clearFilters(); };
+    return;
+  }
+  $("#list").innerHTML = groups.map(([k, cs]) => {
+    const tierNote = prefs.tab === "riven" ? (TIERS.find(t => t[0] === k) || [])[1] : "";
+    return `<section class="group" style="--hue:${prefs.tab === "all" ? hue(k) : "var(--fg)"}">
+      <h2>${k}<span>${cs.length}</span></h2>${tierNote ? `<p class="note">${tierNote}</p>` : ""}
+      ${cs.map(rowHTML).join("")}</section>`;
+  }).join("") + `<p class="foot">Built ${DATA.built} from ${DATA.decks.total} public Piltover Archive decks
+    (${DATA.decks.riven} Riven) across the 11 meta legends. Prices are TCGplayer market for the cheapest standard printing.
+    Not affiliated with Riot Games.</p>`;
+}
+
+function setCount(name, i) {
+  const n = have[name] || 0;
+  have[name] = n >= i ? i - 1 : i;
+  if (!have[name]) delete have[name];
+  save();
+  const c = cards.find(c => c.name === name);
+  const row = document.querySelector(`.row[data-name="${CSS.escape(name)}"]`);
+  if (row && c && !(prefs.hide && (have[name] || 0) >= c.need && !query)) {
+    row.outerHTML = rowHTML(c);
+    const r = cards.filter(inTab);
+    $("#found").innerHTML = `<b>${r.reduce((s, c) => s + Math.min(have[c.name] || 0, c.need), 0)}</b> of ${r.reduce((s, c) => s + c.need, 0)} copies found`;
+    $("#left").innerHTML = `<b>$${Math.round(r.reduce((s, c) => s + (c.price || 0) * Math.max(0, c.need - (have[c.name] || 0)), 0))}</b> to buy the rest`;
+  } else render();
+}
+
+function zoom(c) {
+  $("#zoom-img").src = `img/${c.img}-l.webp`;
+  const used = (c.meta?.usedBy || []).map(u => `${u.legend} ${u.share}`).join(", ");
+  $("#zoom-cap").innerHTML = `<b>${esc(c.name)}</b>${c.rarity}, ${c.set}${c.reprints.length ? ` (also ${c.reprints.join(", ")})` : ""}.
+    ${c.price != null ? money(c.price) + " each. " : ""}You need ${c.need}, have ${have[c.name] || 0}.
+    ${used ? `<br>Played by ${esc(used)}` : ""}`;
+  $("#zoom").showModal();
+}
+
+function filterCount() { return prefs.domains.length + prefs.rarities.length + prefs.hide + prefs.price; }
+function syncChips() {
+  document.querySelectorAll("#f-domain .chip").forEach(b => b.setAttribute("aria-pressed", prefs.domains.includes(b.dataset.v)));
+  document.querySelectorAll("#f-rarity .chip").forEach(b => b.setAttribute("aria-pressed", prefs.rarities.includes(b.dataset.v)));
+  $("#f-hide").setAttribute("aria-pressed", prefs.hide);
+  $("#f-price").setAttribute("aria-pressed", prefs.price);
+  $("#filt").dataset.n = filterCount();
+}
+function clearFilters() { Object.assign(prefs, { domains: [], rarities: [], hide: false, price: false }); save(); syncChips(); render(); }
+function toggle(arr, v) { const i = arr.indexOf(v); i < 0 ? arr.push(v) : arr.splice(i, 1); }
+
+function wire() {
+  $("#f-domain").innerHTML = [...DOMAINS, "Colorless"].map(d =>
+    `<button class="chip" data-v="${d}" style="--hue:${hue(d)}" aria-pressed="false">${d}</button>`).join("");
+  $("#f-rarity").innerHTML = RARITIES.map(([r, g]) =>
+    `<button class="chip" data-v="${r}" aria-pressed="false">${g} ${r}</button>`).join("");
+  $("#f-domain").onclick = e => { const b = e.target.closest(".chip"); if (b) { toggle(prefs.domains, b.dataset.v); save(); syncChips(); render(); } };
+  $("#f-rarity").onclick = e => { const b = e.target.closest(".chip"); if (b) { toggle(prefs.rarities, b.dataset.v); save(); syncChips(); render(); } };
+  $("#f-hide").onclick = () => { prefs.hide = !prefs.hide; save(); syncChips(); render(); };
+  $("#f-price").onclick = () => { prefs.price = !prefs.price; save(); syncChips(); render(); };
+  $("#clear").onclick = clearFilters;
+
+  const sheet = $("#sheet");
+  const setSheet = open => { sheet.classList.toggle("open", open); sheet.setAttribute("aria-hidden", !open); $("#filt").setAttribute("aria-expanded", open); };
+  $("#filt").onclick = () => setSheet(!sheet.classList.contains("open"));
+  $("#list").addEventListener("pointerdown", () => setSheet(false));
+
+  document.querySelector(".switch").onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    prefs.tab = b.dataset.tab; save(); render(); window.scrollTo(0, 0);
+  };
+  $("#q").oninput = e => { query = norm(e.target.value.trim()); render(); };
+  $("#list").onclick = e => {
+    const row = e.target.closest(".row"); if (!row) return;
+    const c = cards.find(c => c.name === row.dataset.name);
+    const pip = e.target.closest(".pip");
+    if (pip) setCount(c.name, +pip.dataset.i);
+    else if (e.target.closest(".thumb")) zoom(c);
+  };
+  $("#zoom").onclick = () => $("#zoom").close();
+
+  $("#backup").onclick = async () => {
+    const text = JSON.stringify(have);
+    try { await navigator.clipboard.writeText(text); alert("Backup copied. Paste it into Notes to keep it."); }
+    catch { prompt("Copy this backup:", text); }
+  };
+  $("#restore").onclick = () => {
+    const text = prompt("Paste a backup to replace what this phone has marked:");
+    if (!text) return;
+    try { have = JSON.parse(text); save(); render(); alert("Backup restored."); }
+    catch { alert("That isn't a backup from this app. Nothing was changed."); }
+  };
+}
+
+let DATA;
+fetch("data.json").then(r => r.json()).then(d => {
+  DATA = d; cards = d.cards;
+  $("#n-riven").textContent = cards.filter(c => c.riven).length;
+  $("#n-all").textContent = cards.length;
+  wire(); syncChips(); render();
+  if (location.hash === "#filters") $("#filt").click();
+});
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+</script>
+</body>
+</html>
